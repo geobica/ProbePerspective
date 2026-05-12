@@ -8,6 +8,8 @@
 </style>
 <svg id="timeline" style="position: absolute;left:0;top:0;" width="100%" height="10%">
 </svg>
+<svg id="minimap" style="position: absolute;left:0;top:10%;" width="100%" height="90%">
+</svg>
 <select id="speed_dropdown" style="position: absolute;left:0;top:0;">
 	<option>1x</option>
 	<option>10x</option>
@@ -21,8 +23,75 @@
 	<option>1000000000x</option>
 </select>
 <script>
+
+const SPICE_OFFSET = 946727935.816; // difference between unix and J2000
+
+function findTimeIndex(data, t){
+  const n = data.length;
+
+  if(n < 2) return -1;
+
+  if(t-SPICE_OFFSET <= data[0][0]) return 0;
+  if(t-SPICE_OFFSET >= data[n - 1][0]) return n - 2;
+
+  let lo = 0;
+  let hi = n - 2;
+
+  while(lo <= hi){
+    const mid = Math.floor((lo + hi) / 2);
+
+    const t0 = data[mid][0];
+    const t1 = data[mid + 1][0];
+
+    if(t0 <= t-SPICE_OFFSET && t-SPICE_OFFSET < t1){
+      return mid;
+    }else if (t-SPICE_OFFSET < t0){
+      hi = mid - 1;
+    }else{
+      lo = mid + 1;
+    }
+  }
+
+  return -1;
+}
+
+function progress(A, B, p){
+  return A.map((a, i) => p * a + (1 - p) * B[i]);
+}
+
+function positionAtTime(data, t){
+	let i=findTimeIndex(data, t);
+	if(i==-1){
+		return [0,0,0];
+	}
+	let before_xyz = data[i];
+	let after_xyz = data[Math.min(data.length-1,i+1)];
+	let t_xyz = progress(before_xyz,after_xyz,((t-SPICE_OFFSET)-before_xyz[0])/(after_xyz[0]-before_xyz[0]));
+	return t_xyz;
+}
+
+
+async function loadCSV(url){
+  const response = await fetch(url);
+  const text = await response.text();
+
+  const rows = text.trim().split("\n").map(line => line.split(",").map(Number));
+
+  return rows;
+}
+
+let cassini_positions = [];
+loadCSV("cassini_positions.csv").then(data => {
+  cassini_positions = data;
+});
+
+
+
+
 const timeline = document.getElementById("timeline");
 timeline.setAttribute("height", window.innerHeight * 0.1);
+const minimap = document.getElementById("minimap");
+minimap.setAttribute("height", window.innerHeight * 0.9);
 
 let dropdown_width = 70;
 let playbutton_width = 20;
@@ -49,11 +118,20 @@ function redraw_timeline(){
 	<text id="settime" x="'+(timeline.width.animVal.value-timetext_width/2-timeline.height.animVal.value*0.3)+'" y="'+(timeline.height.animVal.value*0.5)+'" text-anchor="middle" dominant-baseline="middle" class="small">My</text>';
 	redraw_time();
 }
+function redraw_minimap(){
+	minimap.innerHTML = '<circle id="cassini_circle" cx="'+(minimap.width.animVal.value*0.5)+'" cy="'+(timeline.height.animVal.value+minimap.height.animVal.value*0.5)+'" r="'+(10)+'" fill="#aa8822"/>';
+}
 function redraw_time(){
+	const AU = 149597870.7; // km
+	// Saturn is 9~10.1 AU from the Sun, so I'll make the minimap show out to 11 AU
 	document.getElementById("settime").innerHTML = new Date(clicked_ts * 1000).toISOString();
 	document.getElementById("handle").setAttribute("x",-5+greybox_start_x+(greybox_end_x-greybox_start_x)*(clicked_ts-timeline_start_ts)/(timeline_end_ts-timeline_start_ts));
+	let cassini_position = positionAtTime(cassini_positions,clicked_ts);
+	document.getElementById("cassini_circle").setAttribute("cx",minimap.width.animVal.value*0.5+minimap.height.animVal.value*0.5*cassini_position[1]/AU/11);
+	document.getElementById("cassini_circle").setAttribute("cy",timeline.height.animVal.value+minimap.height.animVal.value*0.5+minimap.height.animVal.value*0.5*cassini_position[2]/AU/11);
 }
 
+redraw_minimap();
 redraw_timeline();
 timetext_width = document.getElementById("settime").getBBox().width;
 redraw_timeline();
@@ -92,21 +170,20 @@ document.addEventListener("mouseup", (event) => {
 document.addEventListener("mousemove", (event) => {
 	if(dragging_time){
 		mouseevent(event);
-
 	}
 });
 
 let lastTime = 0;
 function main(currentTime){
-    const deltaT = currentTime*0.001 - lastTime;
-    lastTime = currentTime*0.001;
+	const deltaT = currentTime*0.001 - lastTime;
+	lastTime = currentTime*0.001;
 	let speed = parseInt(document.getElementById("speed_dropdown").value.slice(0, -1));
-    if(!dragging_time&&playing_time){
-    	clicked_ts += speed*deltaT;
+	if(!dragging_time&&playing_time){
+		clicked_ts += speed*deltaT;
 		clicked_ts = Math.min(timeline_end_ts,Math.max(timeline_start_ts,clicked_ts));
 		document.getElementById("settime").innerHTML = new Date(clicked_ts * 1000).toISOString();
 		document.getElementById("handle").setAttribute("x",-5+greybox_start_x+(greybox_end_x-greybox_start_x)*(clicked_ts-timeline_start_ts)/(timeline_end_ts-timeline_start_ts));
-    }
+	}
 	requestAnimationFrame(main);
 }
 requestAnimationFrame(main);
