@@ -20,4 +20,10 @@ Commit three:
 
 I don't know why Saturn's position is missing from the first few years. I'll need to add in another ephemeris file for that.
 
-I still need to make a 3D diagram, what currently exists will just be the minimap, after some prettifying. Then, I need to somehow add in something to load in every image from the Cassini mission. I currently have 1871 images downloaded, totalling 2.3 GB, though once I compress them to just jpegs it'll be small enough for me to host on geobica.com.
+I still need to make a 3D diagram, what currently exists will just be the minimap, after some prettifying. Then, I need to somehow add in something to load in every image from the Cassini mission. I currently have 1871 images downloaded, totalling 2.3 GB, though once I compress them to just jpegs it'll be small enough for me to host on geobica.com. I'll have to do that tomorrow, once I've gotten my laptop charger...
+
+Commit four:
+ - The minimap redraws when pressing play
+
+For some reason the Earth is jittery, which requires further investigation.
+

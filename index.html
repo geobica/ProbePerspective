@@ -197,8 +197,7 @@ function main(currentTime){
 	if(!dragging_time&&playing_time){
 		clicked_ts += speed*deltaT;
 		clicked_ts = Math.min(timeline_end_ts,Math.max(timeline_start_ts,clicked_ts));
-		document.getElementById("settime").innerHTML = new Date(clicked_ts * 1000).toISOString();
-		document.getElementById("handle").setAttribute("x",-5+greybox_start_x+(greybox_end_x-greybox_start_x)*(clicked_ts-timeline_start_ts)/(timeline_end_ts-timeline_start_ts));
+		redraw_time();
 	}
 	requestAnimationFrame(main);
 }
