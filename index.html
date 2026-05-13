@@ -8,7 +8,9 @@
 </style>
 <svg id="timeline" style="position: absolute;left:0;top:0;" width="100%" height="10%">
 </svg>
-<svg id="minimap" style="position: absolute;left:0;top:10%;" width="100%" height="90%">
+<svg id="minimap" style="position: absolute;left:70%;top:75%;" width="30%" height="25%">
+</svg>
+<svg id="simulation" style="position: absolute;left:0%;top:10%;" width="35%" height="35%">
 </svg>
 <select id="speed_dropdown" style="position: absolute;left:0;top:0;">
 	<option>1x</option>
@@ -99,7 +101,11 @@ loadCSV("saturn_positions.csv").then(data => {
 const timeline = document.getElementById("timeline");
 timeline.setAttribute("height", window.innerHeight * 0.1);
 const minimap = document.getElementById("minimap");
-minimap.setAttribute("height", window.innerHeight * 0.9);
+minimap.setAttribute("width", window.innerWidth * 0.3);
+minimap.setAttribute("height", window.innerHeight * 0.2);
+const simulation = document.getElementById("simulation");
+simulation.setAttribute("width", window.innerWidth * 0.35);
+simulation.setAttribute("height", window.innerWidth * 0.35);
 
 let dropdown_width = 70;
 let playbutton_width = 20;
@@ -127,10 +133,54 @@ function redraw_timeline(){
 	redraw_time();
 }
 function redraw_minimap(){
-	minimap.innerHTML = '<circle id="cassini_circle" cx="'+(minimap.width.animVal.value*0.5)+'" cy="'+(timeline.height.animVal.value+minimap.height.animVal.value*0.5)+'" r="'+(10)+'" fill="#aa8822"/>\
-	<circle id="earth_circle" cx="'+(minimap.width.animVal.value*0.5)+'" cy="'+(timeline.height.animVal.value+minimap.height.animVal.value*0.5)+'" r="'+(10)+'" fill="#2244aa"/>\
-	<circle id="saturn_circle" cx="'+(minimap.width.animVal.value*0.5)+'" cy="'+(timeline.height.animVal.value+minimap.height.animVal.value*0.5)+'" r="'+(10)+'" fill="#ff9944"/>';
+	minimap.innerHTML = '<circle id="cassini_circle" cx="'+(minimap.width.animVal.value*0.5)+'" cy="'+(minimap.height.animVal.value*0.5)+'" r="'+(10)+'" fill="#aa8822"/>\
+	<circle id="earth_circle" cx="'+(minimap.width.animVal.value*0.5)+'" cy="'+(minimap.height.animVal.value*0.5)+'" r="'+(10)+'" fill="#2244aa"/>\
+	<circle id="saturn_circle" cx="'+(minimap.width.animVal.value*0.5)+'" cy="'+(minimap.height.animVal.value*0.5)+'" r="'+(10)+'" fill="#ff9944"/>';
 }
+function redraw_simulation(){
+
+	simulation.innerHTML = '<circle id="cassini_center" cx="'+(simulation.width.animVal.value*0.5)+'" cy="'+(simulation.height.animVal.value*0.5)+'" r="'+(10)+'" fill="#aa8822"/>\
+	<circle id="earth_center" cx="'+(simulation.width.animVal.value*0.5)+'" cy="'+(simulation.height.animVal.value*0.5)+'" r="'+(10)+'" fill="#2244aa"/>\
+	<circle id="saturn_center" cx="'+(simulation.width.animVal.value*0.5)+'" cy="'+(simulation.height.animVal.value*0.5)+'" r="'+(10)+'" fill="#ff9944"/>';
+}
+
+function extractRotmat(arr){
+  return [
+    [arr[4],  arr[5],  arr[6]],
+    [arr[7],  arr[8],  arr[9]],
+    [arr[10], arr[11], arr[12]]
+  ];
+}
+
+function transposeMat(m){
+  return [
+    [m[0][0], m[1][0], m[2][0]],
+    [m[0][1], m[1][1], m[2][1]],
+    [m[0][2], m[1][2], m[2][2]]
+  ];
+}
+
+function multiplyMatVec(m, v){
+  const x = v[0];
+  const y = v[1];
+  const z = v[2];
+
+  return [
+    m[0][0]*x + m[0][1]*y + m[0][2]*z,
+    m[1][0]*x + m[1][1]*y + m[1][2]*z,
+    m[2][0]*x + m[2][1]*y + m[2][2]*z
+  ];
+}
+
+function vecDiff(a, b){
+  return [
+    a[0]-b[0],
+    a[1]-b[1],
+    a[2]-b[2]
+  ];
+}
+
+
 function redraw_time(){
 	const AU = 149597870.7; // km
 	// Saturn is 9~10.1 AU from the Sun, so I'll make the minimap show out to 11 AU
@@ -138,16 +188,31 @@ function redraw_time(){
 	document.getElementById("handle").setAttribute("x",-5+greybox_start_x+(greybox_end_x-greybox_start_x)*(clicked_ts-timeline_start_ts)/(timeline_end_ts-timeline_start_ts));
 	let cassini_position = positionAtTime(cassini_positions,clicked_ts);
 	document.getElementById("cassini_circle").setAttribute("cx",minimap.width.animVal.value*0.5+minimap.height.animVal.value*0.5*cassini_position[1]/AU/11);
-	document.getElementById("cassini_circle").setAttribute("cy",timeline.height.animVal.value+minimap.height.animVal.value*0.5+minimap.height.animVal.value*0.5*cassini_position[2]/AU/11);
+	document.getElementById("cassini_circle").setAttribute("cy",minimap.height.animVal.value*0.5+minimap.height.animVal.value*0.5*cassini_position[2]/AU/11);
 	let earth_position = positionAtTime(earth_positions,clicked_ts);
 	document.getElementById("earth_circle").setAttribute("cx",minimap.width.animVal.value*0.5+minimap.height.animVal.value*0.5*earth_position[1]/AU/11);
-	document.getElementById("earth_circle").setAttribute("cy",timeline.height.animVal.value+minimap.height.animVal.value*0.5+minimap.height.animVal.value*0.5*earth_position[2]/AU/11);
+	document.getElementById("earth_circle").setAttribute("cy",minimap.height.animVal.value*0.5+minimap.height.animVal.value*0.5*earth_position[2]/AU/11);
 	let saturn_position = positionAtTime(saturn_positions,clicked_ts);
 	document.getElementById("saturn_circle").setAttribute("cx",minimap.width.animVal.value*0.5+minimap.height.animVal.value*0.5*saturn_position[1]/AU/11);
-	document.getElementById("saturn_circle").setAttribute("cy",timeline.height.animVal.value+minimap.height.animVal.value*0.5+minimap.height.animVal.value*0.5*saturn_position[2]/AU/11);
+	document.getElementById("saturn_circle").setAttribute("cy",minimap.height.animVal.value*0.5+minimap.height.animVal.value*0.5*saturn_position[2]/AU/11);
+
+
+	const SATURN_RADIUS = 58232; //km
+	const FOV = 0.0302; //radians
+
+	let orientation_rotmat = extractRotmat(cassini_position);
+	let oriented_saturnpos = multiplyMatVec(orientation_rotmat,vecDiff(saturn_position,cassini_position));
+	document.getElementById("saturn_center").setAttribute("cx",simulation.width.animVal.value*0.5+simulation.height.animVal.value*0.5*oriented_saturnpos[1]/oriented_saturnpos[0]);
+	document.getElementById("saturn_center").setAttribute("cy",simulation.height.animVal.value*0.5+simulation.height.animVal.value*0.5*oriented_saturnpos[2]/oriented_saturnpos[0]);
+	console.log(-simulation.height.animVal.value/FOV*SATURN_RADIUS/oriented_saturnpos[0]);
+	document.getElementById("saturn_center").setAttribute("r",-simulation.height.animVal.value/FOV*SATURN_RADIUS/oriented_saturnpos[0]);
+
+	console.log(oriented_saturnpos);
+	// cassini_position
 }
 
 redraw_minimap();
+redraw_simulation();
 redraw_timeline();
 timetext_width = document.getElementById("settime").getBBox().width;
 redraw_timeline();
